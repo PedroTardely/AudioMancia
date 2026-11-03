@@ -22,3 +22,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Electron - arquivos gerados
+dist-electron/
+out/
+release/
+
+# Variáveis de ambiente
+.env
+.env.local
+
+# Assets locais de teste (caso exista essa pasta)
+test-audios/
