@@ -1,7 +1,8 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getAudioLibraryBasePath, initializeAudioLibrary, importAudioFile, readLibraryMetadata, createAudioFolder, deleteAudioFolder, deleteAudioAsset, renameAudioFolder, renameAudioAsset, moveAudioAsset, createAudioCategory, renameAudioCategory, deleteAudioCategory, moveAudioFolder } from './services/audio-library-service.js';
+import { registerAudioProtocol } from './services/audio-protocol-service.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const createWindow = () => {
@@ -9,7 +10,9 @@ const createWindow = () => {
         width: 1280,
         height: 720,
         webPreferences: {
-            preload: path.join(__dirname, 'preload.cjs')
+            preload: path.join(__dirname, 'preload.cjs'),
+            contextIsolation: true,
+            nodeIntegration: false
         }
     });
     window.loadURL('http://localhost:5173');
@@ -68,8 +71,21 @@ ipcMain.handle('audio:delete-category', (_, categoryId) => {
 ipcMain.handle('audio:move-folder', (_, folderRelativePath, destinationCategoryId, destinationFolderRelativePath) => {
     return moveAudioFolder(folderRelativePath, destinationCategoryId, destinationFolderRelativePath);
 });
+protocol.registerSchemesAsPrivileged([
+    {
+        scheme: 'rpg-audio',
+        privileges: {
+            standard: true,
+            secure: true,
+            stream: true,
+            supportFetchAPI: true,
+            corsEnabled: true
+        }
+    }
+]);
 app.whenReady().then(() => {
     initializeAudioLibrary();
+    registerAudioProtocol();
     const libraryBasePath = getAudioLibraryBasePath();
     console.log('Library path', libraryBasePath);
     createWindow();

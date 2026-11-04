@@ -1,26 +1,22 @@
 import { InfiniteCanvas } from "./features/spatial-audio/components/spatial-audio-canvas";
 import { CircleModel } from "./features/spatial-audio/components/listener-node";
 import { CircleModelSource } from "./features/spatial-audio/components/circle-model-source";
-import { getAudioContext } from "./features/audio/services/audio-context";
+import { disposeAudio } from "./features/audio/services/audio-player";
+
+// ------- *features* -------
+import { AudioSourcePanel } from "./features/spatial-audio/components/audio-source-panel";
+import { AudioLibraryPanel } from "./features/spatial-audio/audio-library/components/audio-library-panel";
 
 // ------- *custom hooks* -------
 import { useSpatialAudio } from "./features/spatial-audio/hooks/use-spatial-audio";
 import { useAudioSources } from "./features/spatial-audio/hooks/use-audio-sources";
 import { useAudioListener } from "./features/spatial-audio/hooks/use-audio-listener";
-import { useProximityVolumeSync } from "./features/spatial-audio/hooks/use-audio-volume";
 import { useAudioLibrary } from "./features/spatial-audio/audio-library/hooks/use-audio-library";
 import { useState } from "react";
 
+
 function App() {
   // -------------*Apenas Teste*-----------------
-  const handleTestAudioContext = () => {
-    const context = getAudioContext();
-
-    console.log(context);
-    console.log("Estado:", context.state);
-    console.log("Tempo:", context.currentTime);
-    console.log("Sample rate:", context.sampleRate);
-  };
 
   const testElectron = async () => {
     const response = await window.electronAPI.ping();
@@ -47,23 +43,31 @@ function App() {
   // -------------**************-----------------
 
   // --------------* Audio Source *-------------------
-  const { audioSources, updateSourcePosition } = useAudioSources();
+  const { 
+    audioSource, 
+    updateSourcePosition, 
+    addAudioSource,
+    updateSourceBaseVolume,
+    removeAudioSource,
+    updateSourceRadius
+  } = useAudioSources();
 
   // ---------------* Audio Listener *----------------
   const { listener, updateListenerPosition } = useAudioListener();
 
-  // ---------------* Volume * -----------------------
 
-  useProximityVolumeSync(listener, audioSources);
-
-  // ---------------* Audio Controlers * -------------
-
-  const { playSource, playSourceLoop, pauseSource } = useSpatialAudio(
+  const { playSource, playSourceLoop, pauseSource, stopSource } = useSpatialAudio(
     listener,
-    audioSources,
+    audioSource,
+    assets
   );
 
   //---------------------------
+
+  const handleRemoveSource = (id: string): void => {
+    disposeAudio(id);
+    removeAudioSource(id);
+  };
 
   // ---------------* Pastas * -------------
 
@@ -92,6 +96,43 @@ function App() {
     setFolderName("");
   };
 
+  const handleDeleteAsset = async (
+    assetId: string
+  ): Promise<void> => {
+    const isUsed = audioSource.some(
+      source => source.assetId === assetId
+    );
+
+    if (isUsed) {
+      console.warn(
+        'Este áudio está sendo utilizado no canvas.'
+      );
+      return
+    }
+
+    await deleteAsset(assetId);
+  };
+
+  const handleDeleteFolder = async(
+    relativePath: string
+  ): Promise<void> => {
+    try {
+      await deleteFolder(relativePath);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível excluir a pasta.';
+
+      console.error('Error ao excluir pasta:', message);
+
+      window.alert(
+        'Não foi possível excluir a pasta.\n' +
+        'Verifique se ela está vazia'
+      );
+    }
+  };
+
   const handleCreateCategory = async () => {
     if (!categoryName.trim()) {
       return;
@@ -109,23 +150,12 @@ function App() {
     {},
   );
 
-  const [newAssetNames, setNewAssetNames] = useState<Record<string, string>>(
-    {},
-  );
-
-  const [destinationCategoryIds, setDestinationCategoryIds] = useState<
-    Record<string, string>
-  >({});
-
-  const [destinationFolderPaths, setDestinationFolderPaths] = useState<
-    Record<string, string>
-  >({});
-
   const [destinationFolderCategoryIds, setDestinationFolderCategoryIds] =
     useState<Record<string, string>>({});
 
   const [destinationParentFolderPaths, setDestinationParentFolderPaths] =
     useState<Record<string, string>>({});
+
 
   //---------------------------
 
@@ -175,7 +205,9 @@ function App() {
           >
             Renomear
           </button>
-          <button onClick={() => deleteFolder(folder.relativePath)}>
+          <button onClick={() => {
+            void handleDeleteFolder(folder.relativePath);
+          }}>
             Excluir Pasta
           </button>
           <select
@@ -289,123 +321,7 @@ function App() {
         </div>
       ))}
 
-      {assets.map((asset) => (
-        <div key={asset.id}>
-          <p>{asset.name}</p>
-
-          <input
-            type="text"
-            value={newAssetNames[asset.id] || ""}
-            onChange={(event) =>
-              setNewAssetNames((current) => ({
-                ...current,
-                [asset.id]: event.target.value,
-              }))
-            }
-            placeholder="Novo nome do áudio"
-          />
-
-          <button
-            onClick={async () => {
-              const newName = newAssetNames[asset.id]?.trim();
-
-              if (!newName) {
-                return;
-              }
-
-              await renameAsset(asset.id, newName);
-
-              setNewAssetNames((current) => ({
-                ...current,
-                [asset.id]: "",
-              }));
-            }}
-          >
-            Renomear áudio
-          </button>
-
-          <button onClick={() => deleteAsset(asset.id)}>Excluir áudio</button>
-
-          <select
-            value={destinationCategoryIds[asset.id] || ""}
-            onChange={(event) => {
-              const categoryId = event.target.value;
-
-              setDestinationCategoryIds((current) => ({
-                ...current,
-                [asset.id]: categoryId,
-              }));
-
-              setDestinationFolderPaths((current) => ({
-                ...current,
-                [asset.id]: "",
-              }));
-            }}
-          >
-            <option value="">Selecione uma categoria</option>
-
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={destinationFolderPaths[asset.id] || ""}
-            onChange={(event) =>
-              setDestinationFolderPaths((current) => ({
-                ...current,
-                [asset.id]: event.target.value,
-              }))
-            }
-          >
-            <option value=""> Raiz da categoria</option>
-
-            {folders
-              .filter(
-                (folder) =>
-                  folder.categoryId === destinationCategoryIds[asset.id],
-              )
-              .map((folder) => (
-                <option key={folder.relativePath} value={folder.relativePath}>
-                  {folder.name}
-                </option>
-              ))}
-          </select>
-
-          <button
-            onClick={async () => {
-              const destinationCategoryId = destinationCategoryIds[asset.id];
-
-              if (!destinationCategoryId) {
-                return;
-              }
-
-              const destinationFolderRelativePath =
-                destinationFolderPaths[asset.id] || undefined;
-
-              await moveAsset(
-                asset.id,
-                destinationCategoryId,
-                destinationFolderRelativePath,
-              );
-
-              setDestinationCategoryIds((current) => ({
-                ...current,
-                [asset.id]: "",
-              }));
-
-              setDestinationFolderPaths((current) => ({
-                ...current,
-                [asset.id]: "",
-              }));
-            }}
-          >
-            Mover áudio
-          </button>
-        </div>
-      ))}
+    
 
       <input
         type="text"
@@ -499,10 +415,6 @@ function App() {
           </button>
         </div>
       ))}
-
-      {assets.map((asset) => (
-        <p key={asset.id}>{asset.name}</p>
-      ))}
       <h3>Pastas</h3>
       {folders.map((folder) => (
         <p key={folder.relativePath}>{folder.name}</p>
@@ -510,14 +422,18 @@ function App() {
       <p>
         Posição do ouvinte: ({listener.position.x}, {listener.position.y})<br />
       </p>
-      {audioSources.map((audioSource) => (
+      {audioSource.map((audioSource) => (
         <div key={audioSource.id}>
           <p>
             Posição da fonte do áudio: ({audioSource.position.x},{" "}
             {audioSource.position.y})
           </p>
           <p>
-            Raio da fonte do áudio: {audioSource.shape.radius}
+            Raio da fonte do áudio: {
+                audioSource.shape?.type === 'circle'
+                    ? audioSource.shape.radius
+                    : 'Não disponível'    
+            }
             <br />
             Volume base da fonte do áudio: {audioSource.baseVolume}
           </p>
@@ -528,41 +444,82 @@ function App() {
         </div>
       ))}
       <div></div>
-      <button onClick={handleTestAudioContext}>Testar AudioContext</button>
-      {audioSources.map((audioSource) => (
-        <div key={audioSource.id}>
-          <button onClick={() => playSource(audioSource)}>
-            Play Audio: {audioSource.id}
-          </button>
-          <br />
-          <button onClick={() => playSourceLoop(audioSource)}>
-            Loop Audio: {audioSource.id}
-          </button>
-          <br />
-          <button onClick={() => pauseSource(audioSource)}>
-            Pause Audio: {audioSource.id}
-            <div></div>
-          </button>
-        </div>
-      ))}
-      {/* ------------------------------- */}
+      {/* ------------------- */}
+      {/* Audio-Library-Panel */}
+      {/* ------------------- */}
+
+      <AudioLibraryPanel
+        assets={assets}
+        categories={categories}
+        folders={folders}
+        onRenameAsset={renameAsset}
+        onDeleteAsset={handleDeleteAsset}
+        onMoveAsset={moveAsset}
+        onAddToCanvas={(asset) => {
+          addAudioSource(asset, {
+            x: 350,
+            y: 300
+          });
+        }}
+      />
+
+      {/* ------------------ */}
+
+      {/* ------------------ */}
+      {/* Audio-source-props */}
+      {/* ------------------ */}
+
+      {audioSource.map((audioSource) => {
+        const asset = assets.find(
+          asset => asset.id === audioSource.assetId
+        );
+
+        return(
+          <AudioSourcePanel
+            key={audioSource.id}
+            source={audioSource}
+            assetName={asset?.name ?? "Áudio não encontrado."}
+            onPlay={playSource}
+            onLoop={playSourceLoop}
+            onPause={pauseSource}
+            onStop={stopSource}
+            onVolumeChange={updateSourceBaseVolume}
+            onRadiusChange={updateSourceRadius}
+            onRemove={handleRemoveSource}
+        />
+        )
+      })}
+      {/* ------------------ */}
+
+      {/* ------------------ */}
+      {/*   Canvas-Infinito  */}
+      {/* ------------------ */}
+
+
       <InfiniteCanvas>
         <CircleModel
           size={20}
           position={listener.position}
           onMove={updateListenerPosition}
         />
-        {audioSources.map((audioSource) => (
-          <CircleModelSource
+        {audioSource.map((audioSource) => {
+          if (audioSource.shape?.type !== 'circle') {
+            return null;
+          }
+          
+          return (
+            <CircleModelSource
             key={audioSource.id}
             size={30}
             position={audioSource.position}
-            radius={audioSource.radius}
+            radius={audioSource.shape.radius}
             onMove={(newPosition) => {
               updateSourcePosition(audioSource.id, newPosition);
             }}
           />
-        ))}
+          );
+
+        })}
         {/* --------------------------------- */}
       </InfiniteCanvas>
     </main>

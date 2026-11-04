@@ -8,5 +8,5 @@ export type AudioShape =
     }
     | {
         type: 'polygon';
-        point: Point[];
+        points: Point[];
     }

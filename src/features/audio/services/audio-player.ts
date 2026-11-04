@@ -19,7 +19,10 @@ const initializeAudio = (id: string, audioPath: string): AudioTrack => {
 
     const context = getAudioContext();
 
-    const audioElement = new Audio(audioPath);
+    const audioElement = new Audio();
+
+    audioElement.crossOrigin = 'anonymous';
+    audioElement.src = audioPath;
 
     const sourceNode = context.createMediaElementSource(audioElement);
 
@@ -50,8 +53,18 @@ export const setAudioVolume = (id: string, volume: number) => {
         return;
     }
 
-    track.gainNode.gain.value = volume;
-}
+    const context = getAudioContext();
+
+    const gain = track.gainNode.gain;
+
+    gain.cancelScheduledValues(context.currentTime);
+
+    gain.setTargetAtTime(
+        Math.max(0, Math.min(1, volume)),
+        context.currentTime,
+        0.05
+    );
+};
 
 export const playAudio = async (id: string, audioPath: string, volume: number) => {
     const context = getAudioContext();
@@ -95,4 +108,38 @@ export const pauseAudio = (id: string) => {
 
     track.audioElement.pause();
 
+};
+
+export const stopAudio = (id: string): void => {
+    const track = audioTracks.get(id);
+
+    if (!track) {
+        return;
+    }
+
+    track.audioElement.pause();
+    track.audioElement.currentTime = 0;
+}
+
+export const disposeAudio = (id: string): void => {
+    const track = audioTracks.get(id);
+
+    if (!track) {
+        return;
+    }
+
+    const context = getAudioContext();
+
+    track.gainNode.gain.cancelScheduledValues(
+        context.currentTime
+    );
+
+    track.audioElement.pause();
+    track.audioElement.removeAttribute('src');
+    track.audioElement.load();
+
+    track.sourceNode.disconnect();
+    track.gainNode.disconnect();
+
+    audioTracks.delete(id);
 }

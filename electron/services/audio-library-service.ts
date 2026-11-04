@@ -1,11 +1,13 @@
 import { app } from 'electron';
-import { mkdirSync, readdirSync, existsSync, readFileSync, writeFileSync, copyFileSync, rmSync, renameSync } from 'node:fs';
+import { lstatSync, realpathSync, rmdirSync ,mkdirSync, readdirSync, existsSync, readFileSync, writeFileSync, copyFileSync, rmSync, renameSync } from 'node:fs';
 import type {  AudioCategory  } from '../../shared/types/audio-category.js'
 import type { AudioLibraryData } from '../../shared/types/audio-library-data.js'
 import { randomUUID } from 'node:crypto';
 import type { AudioAsset } from '../../shared/types/audio-asset.js';
 import type { AudioFolder } from '../../shared/types/audio-folder.js';
 import path from 'node:path';
+
+import { assertPathInside } from './audio-library-path.js';
 
 type LegacyAudioFolder = {
     name: string;
@@ -27,6 +29,22 @@ type StoredAudioLibraryData = {
 }
 
 const allowedExtensions = ['.mp3', '.wav', '.ogg'];
+
+const isDescendantPath = (
+    parentPath: string,
+    candidatePath: string
+): boolean => {
+    const relative = path.relative(
+        path.resolve(parentPath),
+        path.resolve(candidatePath)
+    );
+
+    return Boolean(relative) &&
+        relative !== '..' &&
+        !relative.startsWith('..' + path.sep) &&
+        !path.isAbsolute(relative);
+};
+
 
 export const renameAudioCategory = (
     categoryId: string,
@@ -562,34 +580,117 @@ export const listAudioFiles = (categoryId: string) => {
 export const deleteAudioFolder = (
     relativePath: string
 ) => {
+    const libraryData = readLibraryMetadata();
+
+    const folder = libraryData.folders.find(
+        (folder) => folder.relativePath === relativePath
+    );
+
+    if (!folder) {
+        throw new Error(
+            'Pasta não cadastrada na biblioteca.'
+        );
+    }
+
+    const category = libraryData.categories.find(
+        category => category.id === folder.categoryId
+    );
+
+    if (!category) {
+        throw new Error(
+            'Categoria da pasta não encontrada.'
+        );
+    }
+
     const libraryPath = getAudioLibraryBasePath();
 
-    const folderPath = path.join(
-        libraryPath,
-        relativePath
+    const categoryPath = path.resolve(
+        getAudioLibraryBasePath(),
+        category.relativePath
+    )
+
+    const folderPath = path.resolve(
+        getAudioLibraryBasePath(),
+        folder.relativePath
     );
+
+    assertPathInside(libraryPath, categoryPath);
+
+    assertPathInside(categoryPath, folderPath);
+
 
     if (!existsSync(folderPath)) {
         throw new Error('Pasta não encontrada.');
     }
 
-    rmSync(folderPath, {
-        recursive: true,
-        force: true
-    });
-
-    const libraryData = readLibraryMetadata();
-
-    libraryData.folders = libraryData.folders.filter((folder) =>
-            folder.relativePath !== relativePath && !folder.relativePath.startsWith(
-                relativePath + path.sep
+    const hasRegisteredContents =
+        libraryData.folders.some(
+            currentFolder =>
+                currentFolder.relativePath !== folder.relativePath &&
+            isDescendantPath(
+                folderPath,
+                path.resolve(libraryPath, currentFolder.relativePath)
             )
-);
+        ) ||
+        libraryData.assets.some(
+            asset =>
+                isDescendantPath(
+                    folderPath,
+                    path.resolve(libraryPath, asset.relativePath)
+                )
+        );
 
-    libraryData.assets = libraryData.assets.filter((asset) => 
-        !asset.relativePath.startsWith(
-            relativePath + path.sep
-        )
+    if (hasRegisteredContents) {
+        throw new Error(
+            'A pasta possui arquivos ou subpastas cadastrados.'
+        );
+    }
+
+    const folderStats = lstatSync(folderPath);
+
+    if (
+        folderStats.isSymbolicLink() ||
+        !folderStats.isDirectory()
+    ) {
+        throw new Error(
+            'O destino não é uma pasta válida.'
+        );
+    }
+
+    const realLibraryPath = realpathSync(libraryPath);
+    const realFolderPath = realpathSync(folderPath);
+
+    assertPathInside(
+        realLibraryPath,
+        realFolderPath
+    );
+
+    const realCategoryPath = realpathSync(categoryPath);
+
+    assertPathInside(
+        realLibraryPath,
+        realCategoryPath
+    );
+
+    assertPathInside(
+        realCategoryPath,
+        realFolderPath
+    );
+
+    const entries = readdirSync(folderPath);
+
+    if(entries.length > 0) {
+        throw new Error(
+            'A pasta precisa estar vazia para ser excluída.'
+        );
+    }
+
+
+    rmdirSync(folderPath);
+
+    libraryData.folders = libraryData.folders.filter(
+        (currentFolder) =>
+            currentFolder.relativePath !== folder.relativePath
     );
 
     writeLibraryMetadata(libraryData);
@@ -846,6 +947,33 @@ export const moveAudioAsset = (
         asset.name
     );
 
+    const currentDirectory = path.dirname(
+        currentAssetPath
+    );
+
+    const relativeDestination = path.relative(
+        libraryPath,
+        destinationFolderPath
+    );
+
+    if (
+        relativeDestination === '..' ||
+        relativeDestination.startsWith('..' + path.sep) ||
+        path.isAbsolute(relativeDestination)
+    ) {
+        throw new Error(
+            'O destino está fora da biblioteca de áudio.'
+        );
+    }
+
+    const isSameDirectory =
+        path.normalize(currentDirectory) ===
+        path.normalize(destinationFolderPath);
+
+    if (isSameDirectory) {
+        return asset;
+    }
+
     if (existsSync(destinationAssetPath)) {
         throw new Error(
             'Já existe um áudio com esse nome no destino.'
@@ -1054,4 +1182,4 @@ export const moveAudioFolder = (
             writeLibraryMetadata(libraryData);
 
             return libraryData;
-}
+};
