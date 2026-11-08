@@ -1,8 +1,9 @@
 import { app } from 'electron';
-import { lstatSync, realpathSync, rmdirSync, mkdirSync, readdirSync, existsSync, readFileSync, writeFileSync, copyFileSync, rmSync, renameSync } from 'node:fs';
+import { lstatSync, realpathSync, rmdirSync, openSync, mkdirSync, readdirSync, existsSync, readFileSync, writeFileSync, copyFileSync, renameSync, unlinkSync, closeSync, fsyncSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { assertPathInside } from './audio-library-path.js';
+import { isAudioLibraryData } from './audio-library-metadata-validator.js';
 const allowedExtensions = ['.mp3', '.wav', '.ogg'];
 const isDescendantPath = (parentPath, candidatePath) => {
     const relative = path.relative(path.resolve(parentPath), path.resolve(candidatePath));
@@ -82,12 +83,28 @@ export const deleteAudioCategory = (categoryId) => {
     }
     const libraryPath = getAudioLibraryBasePath();
     const categoryPath = path.join(libraryPath, category.relativePath);
-    if (existsSync(categoryPath)) {
-        rmSync(categoryPath, {
-            recursive: true,
-            force: true
-        });
+    const hasRegisteredPaths = libraryData.folders.some(folder => isDescendantPath(categoryPath, path.resolve(libraryPath, folder.relativePath))) ||
+        libraryData.assets.some(asset => isDescendantPath(categoryPath, path.resolve(libraryPath, asset.relativePath)));
+    if (hasRegisteredPaths) {
+        throw new Error('A categoria possui registros associados ao seu diretório.');
     }
+    assertPathInside(libraryPath, categoryPath);
+    if (!existsSync(categoryPath)) {
+        throw new Error('Diretório da categoria não encontrado.');
+    }
+    const categoryStats = lstatSync(categoryPath);
+    if (categoryStats.isSymbolicLink() ||
+        !categoryStats.isDirectory()) {
+        throw new Error('O destino não é um diretório de categoria válido.');
+    }
+    const realLibraryPath = realpathSync(libraryPath);
+    const realCategoryPath = realpathSync(categoryPath);
+    assertPathInside(realLibraryPath, realCategoryPath);
+    const entries = readdirSync(categoryPath);
+    if (entries.length > 0) {
+        throw new Error('A categoria cotém arquivos ou subpastas.');
+    }
+    rmdirSync(categoryPath);
     libraryData.categories =
         libraryData.categories.filter((currentCategory) => currentCategory.id !== categoryId);
     writeLibraryMetadata(libraryData);
@@ -252,8 +269,48 @@ export const readLibraryMetadata = () => {
 };
 export const writeLibraryMetadata = (data) => {
     const metadataPath = getLibraryMetadataPath();
+    const temporaryPath = `${metadataPath}.${randomUUID()}.tmp`;
+    const backupPath = `${metadataPath}.bak`;
     const json = JSON.stringify(data, null, 2);
-    writeFileSync(metadataPath, json, 'utf-8');
+    let fileDescriptor;
+    try {
+        fileDescriptor = openSync(temporaryPath, 'wx');
+        writeFileSync(fileDescriptor, json, 'utf-8');
+        fsyncSync(fileDescriptor);
+        closeSync(fileDescriptor);
+        fileDescriptor = undefined;
+        if (existsSync(metadataPath)) {
+            copyFileSync(metadataPath, backupPath);
+        }
+        renameSync(temporaryPath, metadataPath);
+    }
+    finally {
+        if (fileDescriptor !== undefined) {
+            closeSync(fileDescriptor);
+        }
+        if (existsSync(temporaryPath)) {
+            unlinkSync(temporaryPath);
+        }
+    }
+};
+export const readBackupMetadata = () => {
+    const metadataPath = getLibraryMetadataPath();
+    const backupPath = `${metadataPath}.bak`;
+    if (!existsSync(backupPath)) {
+        return null;
+    }
+    const fileContent = readFileSync(backupPath, 'utf-8');
+    let parsedData;
+    try {
+        parsedData = JSON.parse(fileContent);
+    }
+    catch {
+        throw new Error('O backup da biblioteca contém um JSON inválido.');
+    }
+    if (!isAudioLibraryData(parsedData)) {
+        throw new Error('O backup não possui a estrutura esperada da biblioteca.');
+    }
+    return parsedData;
 };
 export const initializeAudioLibrary = () => {
     const libraryPath = getAudioLibraryBasePath();
@@ -361,16 +418,36 @@ export const deleteAudioAsset = (assetId) => {
     const libraryData = readLibraryMetadata();
     const asset = libraryData.assets.find((asset) => asset.id === assetId);
     if (!asset) {
-        throw new Error('Áudio não encontrado.');
+        throw new Error('Áudio não cadastrado na biblioteca.');
+    }
+    const category = libraryData.categories.find((category) => category.id === asset.categoryId);
+    if (!category) {
+        throw new Error('Categoria do áudio não encontrada.');
     }
     const libraryPath = getAudioLibraryBasePath();
+    const categoryPath = path.resolve(libraryPath, category.relativePath);
     const audioPath = path.join(libraryPath, asset.relativePath);
-    if (existsSync(audioPath)) {
-        rmSync(audioPath, {
-            force: true
-        });
+    assertPathInside(libraryPath, categoryPath);
+    assertPathInside(categoryPath, audioPath);
+    console.log('Asset:', asset.name);
+    console.log('Caminho registrado:', asset.relativePath);
+    console.log('Caminho físico esperado:', audioPath);
+    console.log('Arquivo existe?', existsSync(audioPath));
+    if (!existsSync(audioPath)) {
+        throw new Error('Arquivo físico de áudio não encontrado.');
     }
-    libraryData.assets = libraryData.assets.filter((asset) => asset.id !== assetId);
+    const audioStats = lstatSync(audioPath);
+    if (audioStats.isSymbolicLink() ||
+        !audioStats.isFile()) {
+        throw new Error('O caminho não representa um arquivo de áudio válido.');
+    }
+    const realLibraryPath = realpathSync(libraryPath);
+    const realCategoryPath = realpathSync(categoryPath);
+    const realAudioPath = realpathSync(audioPath);
+    assertPathInside(realLibraryPath, realCategoryPath);
+    assertPathInside(realCategoryPath, realAudioPath);
+    unlinkSync(audioPath);
+    libraryData.assets = libraryData.assets.filter((currentAsset) => currentAsset.id !== assetId);
     writeLibraryMetadata(libraryData);
     return assetId;
 };
@@ -530,6 +607,11 @@ export const moveAudioFolder = (folderRelativePath, destinationCategoryId, desti
     if (destinationParentRelativePath === folder.relativePath ||
         destinationParentRelativePath.startsWith(folder.relativePath + path.sep)) {
         throw new Error('Uma pasta não pode ser movida para dentro dela mesma.');
+    }
+    const isSameDestination = path.normalize(currentFolderPath) ===
+        path.normalize(newFolderPath);
+    if (isSameDestination) {
+        return libraryData;
     }
     if (existsSync(newFolderPath)) {
         throw new Error('Já existe uma pasta com esse nome no destino.');

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getAudioLibraryBasePath, initializeAudioLibrary, importAudioFile, readLibraryMetadata, createAudioFolder, deleteAudioFolder, deleteAudioAsset, renameAudioFolder, renameAudioAsset, moveAudioAsset, createAudioCategory, renameAudioCategory, deleteAudioCategory, moveAudioFolder } from './services/audio-library-service.js';
+import { getAudioLibraryBasePath, initializeAudioLibrary, importAudioFile, readLibraryMetadata, createAudioFolder, deleteAudioFolder, deleteAudioAsset, renameAudioFolder, renameAudioAsset, moveAudioAsset, createAudioCategory, renameAudioCategory, deleteAudioCategory, moveAudioFolder, readBackupMetadata } from './services/audio-library-service.js';
 import { registerAudioProtocol } from './services/audio-protocol-service.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -85,6 +85,22 @@ protocol.registerSchemesAsPrivileged([
 ]);
 app.whenReady().then(() => {
     initializeAudioLibrary();
+    try {
+        const backup = readBackupMetadata();
+        if (backup === null) {
+            console.log('Nenhum backup encontrado.');
+        }
+        else {
+            console.log('Backup lido e validado:', {
+                categorie: backup.categories.length,
+                folders: backup.folders.length,
+                assets: backup.assets.length
+            });
+        }
+    }
+    catch (error) {
+        console.error('Falha na validação do backup:', error);
+    }
     registerAudioProtocol();
     const libraryBasePath = getAudioLibraryBasePath();
     console.log('Library path', libraryBasePath);
