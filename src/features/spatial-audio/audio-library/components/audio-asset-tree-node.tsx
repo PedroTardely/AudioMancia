@@ -3,8 +3,10 @@ import { useState } from "react";
 import type { AudioAsset } from "../../../../../shared/types/audio-asset";
 import type { AudioCategory } from "../../../../../shared/types/audio-category";
 import type { AudioFolder } from "../../../../../shared/types/audio-folder";
+import type { AudioLibrarySelection } from "../types/audio-library-selection";
 
 import { normalizePath, getParentPath } from "../utils/audio-library-path";
+
 
 interface AudioAssetTreeNodeProps {
     asset: AudioAsset;
@@ -27,6 +29,8 @@ interface AudioAssetTreeNodeProps {
     ) => Promise<void>;
 
     onAddToCanvas: (asset: AudioAsset) => void;
+
+    onSelect: (selection: AudioLibrarySelection) => void;
 }
 
 export const AudioAssetTreeNode = ({
@@ -36,7 +40,8 @@ export const AudioAssetTreeNode = ({
     onRename,
     onDelete,
     onMove,
-    onAddToCanvas
+    onAddToCanvas,
+    onSelect
 }: AudioAssetTreeNodeProps) => {
     const [newName, setNewName] = useState('');
     const [categoryId, setCategoryId] = useState('');
@@ -154,6 +159,18 @@ export const AudioAssetTreeNode = ({
     return (
         <li>
             <p>{asset.name}</p>
+
+            <button
+                type="button"
+                onClick={() => {
+                    onSelect({
+                        type: 'asset',
+                        id: asset.id
+                    })
+                }}
+            >
+                Selecionar áudio
+            </button>
 
             <input 
                 type="text" 

@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { AudioCategory } from "../../../../../shared/types/audio-category";
 import type { AudioFolder } from "../../../../../shared/types/audio-folder";
 import type { AudioAsset } from "../../../../../shared/types/audio-asset";
+import type { AudioLibrarySelection } from "../types/audio-library-selection";
 
 import { AudioAssetTreeNode } from "./audio-asset-tree-node";
 
@@ -47,6 +48,9 @@ interface AudioFolderTreeNodeProps {
     ) => Promise<void>;
 
     onAddToCanvas: (asset: AudioAsset) => void;
+
+    onSelect: (selection: AudioLibrarySelection) => void;
+    
 }
 
 export const AudioFolderTreeNode = ({
@@ -59,7 +63,8 @@ export const AudioFolderTreeNode = ({
     onRenameAsset,
     onDeleteAsset,
     onMoveAsset,
-    onAddToCanvas
+    onAddToCanvas,
+    onSelect
 }: AudioFolderTreeNodeProps) => {
     const [newName, setNewName] = useState('');
     const [isRenaming, setIsRenaming] = useState(false);
@@ -122,6 +127,18 @@ export const AudioFolderTreeNode = ({
             <details>
                 <summary>{node.folder.name}</summary>
 
+                <button
+                type="button"
+                onClick={() => {
+                    onSelect({
+                        type: 'folder',
+                        relativePath: node.folder.relativePath
+                    });
+                }}
+            >
+                Selecionar pasta
+            </button>
+
                 <div>
                     <input 
                         type="text" 
@@ -174,6 +191,7 @@ export const AudioFolderTreeNode = ({
                             onDeleteAsset={onDeleteAsset}
                             onMoveAsset={onMoveAsset}
                             onAddToCanvas={onAddToCanvas}
+                            onSelect={onSelect}
                         />
                     ))}
 
@@ -187,6 +205,7 @@ export const AudioFolderTreeNode = ({
                             onDelete={onDeleteAsset}
                             onMove={onMoveAsset}
                             onAddToCanvas={onAddToCanvas}
+                            onSelect={onSelect}
                         />
                     ))}
                 </ul>

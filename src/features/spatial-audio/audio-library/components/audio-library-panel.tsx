@@ -7,6 +7,10 @@ import { AudioCategoryCreate } from "./audio-category-create";
 import { AudioFolderCreate } from "./audio-folder-create";
 import { AudioLibraryTree } from "./audio-library-tree";
 
+import { useAudioLibrarySelection } from "../hooks/use-audio-library-selection";
+
+import { AudioLibrarySelectionInspector } from "./audio-library-selection-inspector";
+
 interface AudioLibraryPanelProps {
     assets: AudioAsset[];
     categories:AudioCategory[];
@@ -78,6 +82,17 @@ export const AudioLibraryPanel = ({
     onImportAudio,
     onCreateCategory
 }: AudioLibraryPanelProps) => {
+
+    const {
+        selection,
+        select,
+        clearSelection
+    } = useAudioLibrarySelection(
+        categories,
+        folders,
+        assets
+    )
+
     return (
     <>
 
@@ -115,6 +130,16 @@ export const AudioLibraryPanel = ({
         onDeleteAsset={onDeleteAsset}
         onMoveAsset={onMoveAsset}
         onAddToCanvas={onAddToCanvas}
+
+        onSelect={select}
+    />
+
+    <AudioLibrarySelectionInspector 
+    selection={selection}
+    categories={categories}
+    folders={folders}
+    assets={assets}
+    onClearSelection={clearSelection}
     />
 
     </>

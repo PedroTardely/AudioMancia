@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { AudioAsset } from "../../../../../shared/types/audio-asset";
 import type { AudioCategory } from "../../../../../shared/types/audio-category";
 import type { AudioFolder } from "../../../../../shared/types/audio-folder";
+import type { AudioLibrarySelection } from "../types/audio-library-selection";
 
 import { buildAudioLibraryTree } from "../utils/build-audio-library-tree";
 import { AudioCategoryTreeNode } from "./audio-category-tree-node";
@@ -52,6 +53,8 @@ interface AudioLibraryTreeProps {
     ) => Promise<void>;
 
     onAddToCanvas: (asset: AudioAsset) => void;
+
+    onSelect: (selection: AudioLibrarySelection) => void;
 }
 
 export const AudioLibraryTree =({
@@ -66,7 +69,8 @@ export const AudioLibraryTree =({
     onRenameAsset,
     onDeleteAsset,
     onMoveAsset,
-    onAddToCanvas
+    onAddToCanvas,
+    onSelect
 }: AudioLibraryTreeProps) => {
     const tree = useMemo(
         () => buildAudioLibraryTree(
@@ -100,6 +104,8 @@ export const AudioLibraryTree =({
                         onDeleteAsset={onDeleteAsset}
                         onMoveAsset={onMoveAsset}
                         onAddToCanvas={onAddToCanvas}
+
+                        onSelect={onSelect}
                     />
                 ))}
             </ul>

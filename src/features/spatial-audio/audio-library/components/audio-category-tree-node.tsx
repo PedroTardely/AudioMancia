@@ -5,6 +5,7 @@ import type { AudioCategoryNode } from "../utils/build-audio-library-tree";
 import type { AudioAsset } from "../../../../../shared/types/audio-asset";
 import type { AudioCategory } from "../../../../../shared/types/audio-category";
 import type { AudioFolder } from "../../../../../shared/types/audio-folder";
+import type { AudioLibrarySelection } from "../types/audio-library-selection";
 
 import { AudioFolderTreeNode } from "./audio-folder-tree-node";
 import { AudioAssetTreeNode } from "./audio-asset-tree-node";
@@ -54,6 +55,8 @@ interface AudioCategoryTreeNodeProps {
     ) => Promise<void>;
 
     onAddToCanvas: (asset: AudioAsset) => void;
+
+    onSelect: (selection: AudioLibrarySelection) => void;
 }
     
 export const  AudioCategoryTreeNode = ({
@@ -68,7 +71,8 @@ export const  AudioCategoryTreeNode = ({
     onRenameAsset,
     onDeleteAsset,
     onMoveAsset,
-    onAddToCanvas
+    onAddToCanvas,
+    onSelect
 }: AudioCategoryTreeNodeProps ) => {
     const [newName, setNewName] = useState('');
     const [isRenaming, setIsRenaming] = useState(false);
@@ -133,6 +137,18 @@ export const  AudioCategoryTreeNode = ({
             <details>
                 <summary>{node.category.name}</summary>
 
+                <button
+                type="button"
+                onClick={() => {
+                    onSelect({
+                        type: 'category',
+                        id: node.category.id
+                    });
+                }}
+            >
+                Selecionar categoria
+            </button>
+
                 <div>
                     <input 
                         type="text"
@@ -178,6 +194,7 @@ export const  AudioCategoryTreeNode = ({
                             onDeleteAsset={onDeleteAsset}
                             onMoveAsset={onMoveAsset}
                             onAddToCanvas={onAddToCanvas}
+                            onSelect={onSelect}
                         />
                     ))}
 
@@ -191,6 +208,7 @@ export const  AudioCategoryTreeNode = ({
                             onDelete={onDeleteAsset}
                             onMove={onMoveAsset}
                             onAddToCanvas={onAddToCanvas}
+                            onSelect={onSelect}
                         />
                     ))}
                 </ul>
