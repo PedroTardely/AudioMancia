@@ -140,6 +140,10 @@ export const AudioLibraryPanel = ({
     folders={folders}
     assets={assets}
     onClearSelection={clearSelection}
+    onRenameAsset={onRenameAsset}
+    onMoveAsset={onMoveAsset}
+    onDeleteAsset={onDeleteAsset}
+    onAddToCanvas={onAddToCanvas}
     />
 
     </>

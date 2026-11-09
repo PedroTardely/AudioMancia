@@ -69,7 +69,7 @@ function App() {
     
     if (isUsed) {
       throw new Error(
-        'Este áudio está sendo utilizado no canvas.' +
+        'Este áudio está sendo utilizado no canvas. ' +
         'Remova todas as fontes associadas antes de excluí-lo.'
       );
     }
