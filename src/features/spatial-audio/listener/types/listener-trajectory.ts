@@ -1,6 +1,6 @@
 import type { Point } from "../../types/point";
 
-export interface ListernerTrajectory {
+export interface ListenerTrajectory {
     id: string;
     name: string;
 

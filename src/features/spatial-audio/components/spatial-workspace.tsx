@@ -2,6 +2,8 @@ import { InfiniteCanvas } from "./spatial-audio-canvas";
 import { CircleModel } from "./listener-node";
 import { CircleModelSource } from "./circle-model-source";
 
+import { ListenerTrajectoryLayer } from "./listener-trajectory-layer";
+
 import type { Point } from "../types/point";
 import type { AudioSource } from "../types/audio-source";
 
@@ -15,16 +17,30 @@ interface SpatialWorkSpaceProps {
         sourceId: string,
         position: Point
     ) => void;
+
+    waypoints: Point[];
+    isWaypointEditing: boolean;
+    onWaypointAdd: (position: Point) => void;
 }
 
 export const SpatialWorkSpace = ({
     listenerPosition,
     audioSources,
     onListenerMove,
-    onSourceMove
+    onSourceMove,
+    waypoints,
+    isWaypointEditing,
+    onWaypointAdd
 }: SpatialWorkSpaceProps) => {
     return (
-        <InfiniteCanvas>
+        <InfiniteCanvas
+            isWaypointEditing={isWaypointEditing}
+            onWaypointAdd={onWaypointAdd}
+        >
+            <ListenerTrajectoryLayer
+                waypoints={waypoints}
+            />
+            
             <CircleModel
                 size={20}
                 position={listenerPosition}

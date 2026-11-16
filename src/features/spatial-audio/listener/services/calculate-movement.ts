@@ -15,7 +15,7 @@ export const calculateMovement = (
         return current;
     }
 
-    const dx = target.x - current.y;
+    const dx = target.x - current.x;
     const dy = target.y - current.y;
 
     const distance = Math.hypot(dx, dy);

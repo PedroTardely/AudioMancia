@@ -1,3 +1,5 @@
+import type { Point } from "./features/spatial-audio/types/point";
+
 import { SpatialWorkSpace } from "./features/spatial-audio/components/spatial-workspace";
 import { disposeAudio } from "./features/audio/services/audio-player";
 
@@ -10,6 +12,8 @@ import { useSpatialAudio } from "./features/spatial-audio/hooks/use-spatial-audi
 import { useAudioSources } from "./features/spatial-audio/hooks/use-audio-sources";
 import { useAudioListener } from "./features/spatial-audio/hooks/use-audio-listener";
 import { useAudioLibrary } from "./features/spatial-audio/audio-library/hooks/use-audio-library";
+import { UseListenerMovement } from "./features/spatial-audio/listener/services/use-listener-movement";
+import { useState } from "react";
 
 function App() {
   // -------------*Apenas Teste*-----------------
@@ -41,8 +45,43 @@ function App() {
     updateSourceRadius
   } = useAudioSources();
 
+    //---Waypoints----------------
+
+  const [waypoints, setWaypoints] = useState<Point[]>([]);
+
+  const [isWaypointEditing, setWaypointsEditing] = useState(false);
+
+  const handleAddWaypoint = (position: Point) => {
+    if (movementStatus !== 'idle') return;
+
+    setWaypoints(current => [
+      ...current,
+      position
+    ]);
+  };
+
+
   // ---------------* Audio Listener *----------------
   const { listener, updateListenerPosition } = useAudioListener();
+
+  const {
+    status: movementStatus,
+    play: playMovement,
+    pause: pauseMovement,
+    resume: resumeMovement,
+    stop: stopMovement
+  } = UseListenerMovement ({
+    position: listener.position,
+    waypoints,
+    speed: 80,
+    loop: true,
+    onPositionChange: updateListenerPosition
+  });
+
+  const handleManualListenerMove = (position: Point) => {
+    pauseMovement();
+    updateListenerPosition(position);
+  }
 
 
   const { playSource, playSourceLoop, pauseSource, stopSource } = useSpatialAudio(
@@ -157,14 +196,94 @@ function App() {
       })}
 
       {/* ------------------ */}
+      {/*   Teste Movimento  */}
+      {/* ------------------ */}
+
+      <section>
+
+        <h3>Movimento automático do Listener</h3>
+
+        <p>Status: {movementStatus}</p>
+
+        <button
+          type="button"
+          disabled={movementStatus !== 'idle'}
+          onClick={() => {
+            setWaypointsEditing(current => !current);
+          }}
+        >
+          {isWaypointEditing
+            ? 'Finalizar edição'
+            : 'Adicionar Waypoints'
+          }
+        </button>
+
+        <button
+          type="button"
+          disabled={
+            movementStatus !== 'idle' ||
+            waypoints.length === 0
+          }
+          onClick={() => setWaypoints([])}
+        >
+          Limpar trajetória
+        </button>
+
+        <p>Waypoints: {waypoints.length}</p>
+
+        <button
+          type="button"
+          onClick={playMovement}
+          disabled={movementStatus === 'playing'}
+        >
+          Play Listener
+        </button>
+
+        <button
+          type="button"
+          onClick={pauseMovement}
+          disabled={movementStatus !== 'playing'}
+        >
+          Pause Listener
+        </button>
+
+        <button
+          type="button"
+          onClick={resumeMovement}
+          disabled={movementStatus !== 'paused'}
+        >
+          resume Listener
+        </button>
+
+        <button
+          type="button"
+          onClick={stopMovement}
+          disabled={movementStatus === 'idle'}
+        >
+          stop Listener
+        </button>
+
+
+
+      </section>
+
+      {/* ------------------ */}
       {/*   Canvas-Infinito  */}
       {/* ------------------ */}
 
       <SpatialWorkSpace
         listenerPosition={listener.position}
         audioSources={audioSource}
-        onListenerMove={updateListenerPosition}
+        onListenerMove={handleManualListenerMove}
         onSourceMove={updateSourcePosition}
+
+        waypoints={waypoints}
+        isWaypointEditing={
+          isWaypointEditing &&
+          movementStatus === 'idle'
+        }
+
+        onWaypointAdd={handleAddWaypoint}
       />
     </main>
   );
