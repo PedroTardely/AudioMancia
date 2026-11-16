@@ -119,18 +119,6 @@ export const AudioLibraryPanel = ({
         folders={folders}
         assets={assets}
 
-        onRenameCategory={onRenameCategory}
-        onDeleteCategory={onDeleteCategory}
-
-        onRenameFolder={onRenameFolder}
-        onDeleteFolder={onDeleteFolder}
-        onMoveFolder={onMoveFolder}
-
-        onRenameAsset={onRenameAsset}
-        onDeleteAsset={onDeleteAsset}
-        onMoveAsset={onMoveAsset}
-        onAddToCanvas={onAddToCanvas}
-
         onSelect={select}
     />
 
@@ -140,10 +128,19 @@ export const AudioLibraryPanel = ({
     folders={folders}
     assets={assets}
     onClearSelection={clearSelection}
+
     onRenameAsset={onRenameAsset}
     onMoveAsset={onMoveAsset}
     onDeleteAsset={onDeleteAsset}
+
     onAddToCanvas={onAddToCanvas}
+
+    onRenameCategory={onRenameCategory}
+    onDeleteCategory={onDeleteCategory}
+
+    onRenameFolder={onRenameFolder}
+    onDeleteFolder={onDeleteFolder}
+    onMoveFolder={onMoveFolder}
     />
 
     </>

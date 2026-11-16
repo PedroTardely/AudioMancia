@@ -13,47 +13,6 @@ interface AudioLibraryTreeProps {
     folders: AudioFolder[];
     assets: AudioAsset[];
 
-    onRenameCategory: (
-        categoryId: string,
-        newName: string
-    ) => Promise<void>;
-
-    onDeleteCategory: (
-        categoryId: string
-    ) => Promise<void>;
-
-    onRenameFolder: (
-        relativePath: string,
-        newName: string
-    ) => Promise<void>;
-
-    onDeleteFolder: (
-        relativePath: string
-    ) => Promise<void>;
-
-    onMoveFolder: (
-        relativePath: string,
-        categoryId: string,
-        destinationFolderRelativePath?: string
-    ) => Promise<void>;
-
-    onRenameAsset: (
-        assetId: string,
-        newName: string
-    ) => Promise<void>;
-
-    onDeleteAsset: (
-        assetId: string
-    ) => Promise<void>;
-
-    onMoveAsset: (
-        assetId: string,
-        categoryId: string,
-        destinationFolderPath?: string
-    ) => Promise<void>;
-
-    onAddToCanvas: (asset: AudioAsset) => void;
-
     onSelect: (selection: AudioLibrarySelection) => void;
 }
 
@@ -61,15 +20,6 @@ export const AudioLibraryTree =({
     categories,
     folders,
     assets,
-    onRenameCategory,
-    onDeleteCategory,
-    onRenameFolder,
-    onDeleteFolder,
-    onMoveFolder,
-    onRenameAsset,
-    onDeleteAsset,
-    onMoveAsset,
-    onAddToCanvas,
     onSelect
 }: AudioLibraryTreeProps) => {
     const tree = useMemo(
@@ -90,21 +40,6 @@ export const AudioLibraryTree =({
                     <AudioCategoryTreeNode 
                         key={categoryNode.category.id}
                         node={categoryNode}
-                        categories={categories}
-                        folders={folders}
-
-                        onRename={onRenameCategory}
-                        onDelete={onDeleteCategory}
-
-                        onRenameFolder={onRenameFolder}
-                        onDeleteFolder={onDeleteFolder}
-                        onMoveFolder={onMoveFolder}
-
-                        onRenameAsset={onRenameAsset}
-                        onDeleteAsset={onDeleteAsset}
-                        onMoveAsset={onMoveAsset}
-                        onAddToCanvas={onAddToCanvas}
-
                         onSelect={onSelect}
                     />
                 ))}

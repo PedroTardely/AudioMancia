@@ -5,6 +5,11 @@ import type { AudioFolder } from "../../../../../shared/types/audio-folder";
 import { AudioAssetRename } from "./audio-asset-rename";
 import { AudioAssetMove } from "./audio-asset-move";
 import { AudioAssetActions } from "./audio-asset-actions";
+import { AudioCategoryActions } from "./audio-category-actions";
+import { AudioFolderActions } from "./audio-folder-action";
+import { AudioFolderMove } from "./audio-folder-move";
+
+import { normalizePath } from "../utils/audio-library-path";
 
 import type { AudioLibrarySelection } from "../types/audio-library-selection";
 
@@ -26,6 +31,20 @@ interface AudioLibrarySelectionInspectorProps {
   onDeleteAsset: (assetId: string) => Promise<void>;
 
   onAddToCanvas: (asset: AudioAsset) => void;
+
+  onRenameCategory: (categoryId: string, newName: string) => Promise<void>;
+
+  onDeleteCategory: (categoryId: string) => Promise<void>;
+
+  onRenameFolder: (folderPath: string, newName: string) => Promise<void>;
+
+  onDeleteFolder: (folderPath: string) => Promise<void>;
+
+  onMoveFolder: (
+    folderPath: string,
+    categoryId: string,
+    destinationFolderPath?: string,
+  ) => Promise<void>;
 }
 
 export const AudioLibrarySelectionInspector = ({
@@ -38,8 +57,12 @@ export const AudioLibrarySelectionInspector = ({
   onMoveAsset,
   onDeleteAsset,
   onAddToCanvas,
+  onRenameCategory,
+  onDeleteCategory,
+  onRenameFolder,
+  onDeleteFolder,
+  onMoveFolder,
 }: AudioLibrarySelectionInspectorProps) => {
-
   if (!selection) {
     return (
       <section>
@@ -48,6 +71,20 @@ export const AudioLibrarySelectionInspector = ({
       </section>
     );
   }
+
+  const selectedCategory =
+    selection.type === "category"
+      ? categories.find((category) => category.id === selection.id)
+      : undefined;
+
+  const selectedFolder =
+    selection.type === "folder"
+      ? folders.find(
+          (folder) =>
+            normalizePath(folder.relativePath) ===
+            normalizePath(selection.relativePath),
+        )
+      : undefined;
 
   const selectedAsset =
     selection.type === "asset"
@@ -61,30 +98,25 @@ export const AudioLibrarySelectionInspector = ({
 
   switch (selection.type) {
     case "category": {
-      const category = categories.find((item) => item.id === selection.id);
+      if (!selectedCategory) return null;
 
-      if (!category) return null;
-
-      name = category.name;
+      name = selectedCategory.name;
       type = "Categoria";
-      relativePath = category.relativePath;
+      relativePath = selectedCategory.relativePath;
+
       break;
     }
 
     case "folder": {
-      const folder = folders.find(
-        (item) =>
-          item.relativePath.replace(/\\/g, "/") ===
-          selection.relativePath.replace(/\\/g, "/"),
+      if (!selectedFolder) return null;
+
+      const category = categories.find(
+        (item) => item.id === selectedFolder.categoryId
       );
 
-      if (!folder) return null;
-
-      const category = categories.find((item) => item.id === folder.categoryId);
-
-      name = folder.name;
+      name = selectedFolder.name;
       type = "Pasta";
-      relativePath = folder.relativePath;
+      relativePath = selectedFolder.relativePath;
       categoryName = category?.name ?? "Não encontrada";
       break;
     }
@@ -117,6 +149,7 @@ export const AudioLibrarySelectionInspector = ({
 
       {selectedAsset && (
         <>
+
           <AudioAssetRename
             key={selectedAsset.id}
             assetId={selectedAsset.id}
@@ -138,6 +171,36 @@ export const AudioLibrarySelectionInspector = ({
             onAddToCanvas={onAddToCanvas}
             onDeleted={onClearSelection}
           />
+        </>
+      )}
+
+      {selectedCategory && (
+        <AudioCategoryActions
+            key={`${selectedCategory.id}-${selectedCategory.name}`}
+            category={selectedCategory}
+            onRename={onRenameCategory}
+            onDelete={onDeleteCategory}
+            onDeleted={onClearSelection}
+          />
+      )}
+
+      {selectedFolder && (
+        <>
+          <AudioFolderActions
+          key={selectedFolder.relativePath}
+          folder={selectedFolder}
+          onRename={onRenameFolder}
+          onDelete={onDeleteFolder}
+          onDeleted={onClearSelection}
+        />
+
+        <AudioFolderMove
+          key={`move-${selectedFolder.relativePath}`}
+          folder={selectedFolder}
+          categories={categories}
+          folders={folders}
+          onMove={onMoveFolder}
+        />
         </>
       )}
       <button onClick={onClearSelection}>Limpar seleção</button>
