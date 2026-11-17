@@ -21,6 +21,12 @@ interface SpatialWorkSpaceProps {
     waypoints: Point[];
     isWaypointEditing: boolean;
     onWaypointAdd: (position: Point) => void;
+    onWaypointMove: (
+        index: number,
+        position: Point
+    ) => void;
+    selectedWaypointIndex: number | null;
+    onWaypointSelect: (index: number) => void;
 }
 
 export const SpatialWorkSpace = ({
@@ -30,7 +36,10 @@ export const SpatialWorkSpace = ({
     onSourceMove,
     waypoints,
     isWaypointEditing,
-    onWaypointAdd
+    onWaypointAdd,
+    onWaypointMove,
+    selectedWaypointIndex,
+    onWaypointSelect
 }: SpatialWorkSpaceProps) => {
     return (
         <InfiniteCanvas
@@ -39,6 +48,10 @@ export const SpatialWorkSpace = ({
         >
             <ListenerTrajectoryLayer
                 waypoints={waypoints}
+                isEditing={isWaypointEditing}
+                onWaypointMove={onWaypointMove}
+                selectedWaypointIndex={selectedWaypointIndex}
+                onWaypointSelect={onWaypointSelect}
             />
             
             <CircleModel

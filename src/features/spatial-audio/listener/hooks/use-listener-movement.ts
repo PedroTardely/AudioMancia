@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Point } from "../../types/point";
 
-import { advanceListenerTrajectory } from "./advance-listener-trajectory";
+import { advanceListenerTrajectory } from "../services/advance-listener-trajectory";
 
 type MovementStatus = 'idle' | 'playing' | 'paused';
 

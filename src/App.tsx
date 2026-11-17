@@ -3,6 +3,9 @@ import type { Point } from "./features/spatial-audio/types/point";
 import { SpatialWorkSpace } from "./features/spatial-audio/components/spatial-workspace";
 import { disposeAudio } from "./features/audio/services/audio-player";
 
+// ------- *utils* -------
+import { isValidWaypointPosition } from "./features/spatial-audio/listener/utils/is-valid-waypoint-position";
+
 // ------- *features* -------
 import { AudioSourcePanel } from "./features/spatial-audio/components/audio-source-panel";
 import { AudioLibraryPanel } from "./features/spatial-audio/audio-library/components/audio-library-panel";
@@ -12,7 +15,7 @@ import { useSpatialAudio } from "./features/spatial-audio/hooks/use-spatial-audi
 import { useAudioSources } from "./features/spatial-audio/hooks/use-audio-sources";
 import { useAudioListener } from "./features/spatial-audio/hooks/use-audio-listener";
 import { useAudioLibrary } from "./features/spatial-audio/audio-library/hooks/use-audio-library";
-import { UseListenerMovement } from "./features/spatial-audio/listener/services/use-listener-movement";
+import { UseListenerMovement } from "./features/spatial-audio/listener/hooks/use-listener-movement";
 import { useState } from "react";
 
 function App() {
@@ -54,12 +57,64 @@ function App() {
   const handleAddWaypoint = (position: Point) => {
     if (movementStatus !== 'idle') return;
 
-    setWaypoints(current => [
-      ...current,
-      position
-    ]);
+    setWaypoints(current => {
+      if (!isValidWaypointPosition(position, current)) {
+        return current;
+      }
+
+      return [...current, position]
+    });
   };
 
+  const [selectedWaypointIndex, setSelectedWaypointIndex] =
+    useState<number | null>(null);
+
+  const handleReorderWaypoint = (
+    direction: -1 | 1
+  ) => {
+    if (
+      movementStatus !== 'idle' ||
+      selectedWaypointIndex === null
+    ) return;
+
+    const  currentIndex = selectedWaypointIndex;
+    const targetIndex = currentIndex + direction;
+
+    if (
+      currentIndex < 0 ||
+      currentIndex >= waypoints.length ||
+      targetIndex < 0 ||
+      targetIndex >= waypoints.length
+    ) return;
+
+    setWaypoints(current => {
+      const updated = [...current];
+
+      [updated[currentIndex], updated[targetIndex]] = [
+        updated[targetIndex],
+        updated[currentIndex]
+      ];
+
+      return updated;
+    });
+
+    setSelectedWaypointIndex(targetIndex);
+  }
+
+  const handleDeleteSelectedWaypoint = () => {
+    if (
+      movementStatus !== 'idle' ||
+      selectedWaypointIndex === null
+    ) return;
+
+    setWaypoints(current =>
+      current.filter(
+        (_, index) => index !== selectedWaypointIndex
+      )
+    );
+
+    setSelectedWaypointIndex(null);
+  };
 
   // ---------------* Audio Listener *----------------
   const { listener, updateListenerPosition } = useAudioListener();
@@ -82,6 +137,21 @@ function App() {
     pauseMovement();
     updateListenerPosition(position);
   }
+
+  const handleMoveWaypoint = (
+    index: number,
+    position: Point
+  ) => {
+    if (movementStatus !== 'idle') return;
+
+    setWaypoints(current => 
+      current.map((point, currentIndex) =>
+        currentIndex === index
+          ? position
+          :point
+      )
+    );
+  };
 
 
   const { playSource, playSourceLoop, pauseSource, stopSource } = useSpatialAudio(
@@ -218,15 +288,53 @@ function App() {
           }
         </button>
 
+        <button 
+          type="button"
+          disabled={
+            movementStatus !== 'idle' ||
+            selectedWaypointIndex === null
+          }
+          onClick={handleDeleteSelectedWaypoint}
+        >
+          Excluir waypoint selecionado
+        </button>
+
         <button
           type="button"
           disabled={
             movementStatus !== 'idle' ||
             waypoints.length === 0
           }
-          onClick={() => setWaypoints([])}
+          onClick={() => {
+             setWaypoints([]);
+             setSelectedWaypointIndex(null);
+          }}
         >
           Limpar trajetória
+        </button>
+
+        <button 
+          type="button"
+          disabled={
+            movementStatus !== 'idle' ||
+            selectedWaypointIndex === null ||
+            selectedWaypointIndex === 0
+          }
+          onClick={() => handleReorderWaypoint(-1)}
+        >
+          Mover para anterior
+        </button>
+
+        <button 
+          type="button"
+          disabled={
+            movementStatus !== 'idle' ||
+            selectedWaypointIndex === null ||
+            selectedWaypointIndex >= waypoints.length - 1
+          }
+          onClick={() => handleReorderWaypoint(1)}
+        >
+          Mover para próximo
         </button>
 
         <p>Waypoints: {waypoints.length}</p>
@@ -284,6 +392,10 @@ function App() {
         }
 
         onWaypointAdd={handleAddWaypoint}
+        onWaypointMove={handleMoveWaypoint}
+
+        selectedWaypointIndex={selectedWaypointIndex}
+        onWaypointSelect={setSelectedWaypointIndex}
       />
     </main>
   );
